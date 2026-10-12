@@ -1,0 +1,542 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "User Account",
+      "description": "Account profile for customers, shop owners, and platform admins (PII isolated to owner/admin).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address.",
+          "minLength": 3,
+          "maxLength": 200
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User full name.",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "description": "User role in the marketplace.",
+          "enum": ["customer", "shop_owner", "admin"]
+        },
+        "phone": {
+          "type": "string",
+          "description": "Optional customer phone number (+237).",
+          "maxLength": 25
+        },
+        "defaultAddress": {
+          "type": "string",
+          "description": "Saved delivery address in Cameroon.",
+          "maxLength": 300
+        },
+        "defaultCity": {
+          "type": "string",
+          "description": "Saved delivery city in Cameroon.",
+          "maxLength": 60
+        },
+        "accountStatus": {
+          "type": "string",
+          "description": "Approval status for the account.",
+          "enum": ["pending", "approved", "suspended", "banned"]
+        },
+        "hasShop": {
+          "type": "boolean",
+          "description": "Whether the user has created a shop storefront."
+        },
+        "shopName": {
+          "type": "string",
+          "description": "Name of the shop owned by this user.",
+          "maxLength": 100
+        },
+        "shopCity": {
+          "type": "string",
+          "description": "City of the user's shop.",
+          "maxLength": 60
+        },
+        "shopWhatsapp": {
+          "type": "string",
+          "description": "WhatsApp contact of the user's shop.",
+          "maxLength": 25
+        },
+        "favoriteProductIds": {
+          "type": "array",
+          "description": "Bounded list of saved favorite product IDs (max 50)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account update server timestamp."
+        }
+      },
+      "required": ["uid", "email", "displayName", "role", "createdAt", "updatedAt"]
+    },
+    "ShopProfile": {
+      "title": "Shop Profile",
+      "description": "Public storefront profile for a Cameroonian small business or boutique.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the shop owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "shopName": {
+          "type": "string",
+          "description": "Display name of the retail shop.",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "city": {
+          "type": "string",
+          "description": "Cameroonian city where the shop is located.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "whatsappNumber": {
+          "type": "string",
+          "description": "WhatsApp phone number in international format.",
+          "minLength": 9,
+          "maxLength": 20,
+          "pattern": "^\\+?[0-9]{9,15}$"
+        },
+        "bio": {
+          "type": "string",
+          "description": "Short description of the shop and its specialties.",
+          "maxLength": 500
+        },
+        "category": {
+          "type": "string",
+          "description": "Primary specialty classification of the boutique.",
+          "enum": ["fashion", "gourmet", "crafts", "beauty", "electronics"]
+        },
+        "isVerified": {
+          "type": "boolean",
+          "description": "Whether the shop has been verified/approved by the platform admin."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the shop is publicly visible."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update server timestamp."
+        }
+      },
+      "required": ["ownerId", "shopName", "city", "whatsappNumber", "bio", "isPublic", "createdAt", "updatedAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product item listed by a Cameroonian shop owner.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Product title.",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed product description.",
+          "minLength": 5,
+          "maxLength": 1200
+        },
+        "priceXaf": {
+          "type": "number",
+          "description": "Price in Central African CFA Francs (XAF / FCFA)."
+        },
+        "originalPriceXaf": {
+          "type": "number",
+          "description": "Optional original price before promotion in FCFA."
+        },
+        "stock": {
+          "type": "number",
+          "description": "Available quantity in stock."
+        },
+        "isFeatured": {
+          "type": "boolean",
+          "description": "Whether the product is featured on the home page."
+        },
+        "isApproved": {
+          "type": "boolean",
+          "description": "Whether the product is approved by the admin."
+        },
+        "approvalStatus": {
+          "type": "string",
+          "description": "Approval status of the product.",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "promoBadge": {
+          "type": "string",
+          "description": "Optional promotional label.",
+          "maxLength": 40
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category key.",
+          "enum": ["fashion", "gourmet", "crafts", "beauty", "electronics"]
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Product image URL or encoded data URI.",
+          "minLength": 5,
+          "maxLength": 700000
+        },
+        "shopId": {
+          "type": "string",
+          "description": "ID of the shop (matches ownerId).",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "shopName": {
+          "type": "string",
+          "description": "Name of the shop selling this product.",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "shopCity": {
+          "type": "string",
+          "description": "City of the shop.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "whatsappNumber": {
+          "type": "string",
+          "description": "Shop owner's WhatsApp number for direct ordering.",
+          "minLength": 9,
+          "maxLength": 20,
+          "pattern": "^\\+?[0-9]{9,15}$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the shop owner who created this product.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the product is active in the public catalog."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update server timestamp."
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "priceXaf",
+        "category",
+        "imageUrl",
+        "shopId",
+        "shopName",
+        "shopCity",
+        "whatsappNumber",
+        "ownerId",
+        "isPublic",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OrderRecord": {
+      "title": "Order Record",
+      "description": "Customer order with Cameroonian payment method, delivery details, and tracking status.",
+      "type": "object",
+      "properties": {
+        "orderNumber": {
+          "type": "string",
+          "description": "Human-readable order tracking code (e.g. KM-84920).",
+          "minLength": 4,
+          "maxLength": 40
+        },
+        "customerId": {
+          "type": "string",
+          "description": "UID of the customer who placed the order.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Full name of the customer.",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "customerPhone": {
+          "type": "string",
+          "description": "Customer phone number (+237).",
+          "minLength": 8,
+          "maxLength": 25
+        },
+        "deliveryCity": {
+          "type": "string",
+          "description": "Delivery city in Cameroon.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "deliveryAddress": {
+          "type": "string",
+          "description": "Detailed neighborhood or street delivery address.",
+          "minLength": 3,
+          "maxLength": 300
+        },
+        "deliveryMethod": {
+          "type": "string",
+          "description": "Selected delivery method.",
+          "enum": ["local_express", "intercity_bus", "shop_pickup"]
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Cameroonian payment method.",
+          "enum": ["mtn_momo", "orange_money", "bank_card", "cash_on_delivery"]
+        },
+        "paymentStatus": {
+          "type": "string",
+          "description": "Payment verification status.",
+          "enum": ["pending", "paid", "cod_pending", "refunded"]
+        },
+        "orderStatus": {
+          "type": "string",
+          "description": "Order fulfillment and tracking status.",
+          "enum": ["placed", "confirmed", "in_transit", "delivered", "cancelled"]
+        },
+        "shopId": {
+          "type": "string",
+          "description": "ID of the shop fulfilling this order.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "shopName": {
+          "type": "string",
+          "description": "Name of the shop fulfilling this order.",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "itemsSummary": {
+          "type": "string",
+          "description": "Formatted summary of ordered items and quantities.",
+          "minLength": 2,
+          "maxLength": 1500
+        },
+        "subtotalXaf": {
+          "type": "number",
+          "description": "Items subtotal in FCFA."
+        },
+        "deliveryFeeXaf": {
+          "type": "number",
+          "description": "Delivery fee in FCFA."
+        },
+        "totalXaf": {
+          "type": "number",
+          "description": "Total amount in FCFA."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Order creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Order update server timestamp."
+        }
+      },
+      "required": [
+        "orderNumber",
+        "customerId",
+        "customerName",
+        "customerPhone",
+        "deliveryCity",
+        "deliveryAddress",
+        "deliveryMethod",
+        "paymentMethod",
+        "paymentStatus",
+        "orderStatus",
+        "shopId",
+        "shopName",
+        "itemsSummary",
+        "subtotalXaf",
+        "deliveryFeeXaf",
+        "totalXaf",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ProductReview": {
+      "title": "Product & Seller Review",
+      "description": "Customer rating and review for a product and seller.",
+      "type": "object",
+      "properties": {
+        "productId": {
+          "type": "string",
+          "description": "ID of the reviewed product.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "shopId": {
+          "type": "string",
+          "description": "ID of the reviewed shop.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorId": {
+          "type": "string",
+          "description": "UID of the reviewer.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": {
+          "type": "string",
+          "description": "Display name of the reviewer.",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "rating": {
+          "type": "number",
+          "description": "Star rating from 1 to 5."
+        },
+        "comment": {
+          "type": "string",
+          "description": "Review feedback comment.",
+          "minLength": 3,
+          "maxLength": 800
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the review is publicly visible."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp."
+        }
+      },
+      "required": [
+        "productId",
+        "shopId",
+        "authorId",
+        "authorName",
+        "rating",
+        "comment",
+        "isPublic",
+        "createdAt"
+      ]
+    },
+    "SupportTicket": {
+      "title": "Support Ticket & Complaint",
+      "description": "Customer support inquiry or complaint submitted for admin resolution.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the user submitting the ticket.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Full name of the user.",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "Email or phone contact.",
+          "minLength": 3,
+          "maxLength": 200
+        },
+        "subject": {
+          "type": "string",
+          "description": "Ticket subject or order reference.",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "message": {
+          "type": "string",
+          "description": "Detailed message or complaint description.",
+          "minLength": 5,
+          "maxLength": 1500
+        },
+        "status": {
+          "type": "string",
+          "description": "Resolution status.",
+          "enum": ["open", "resolved"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Ticket creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Ticket update server timestamp."
+        }
+      },
+      "required": ["userId", "userName", "userEmail", "subject", "message", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "User account documents containing role, saved delivery address, and favorites (PII isolated to owner/admin)."
+    },
+    "/shops/{shopId}": {
+      "schema": { "$ref": "#/entities/ShopProfile" },
+      "description": "Public shop profiles indexed by shop owner UID."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Marketplace products listed by Cameroonian shop owners."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/OrderRecord" },
+      "description": "Customer orders isolated to the purchasing customer, fulfilling shop owner, and platform admin."
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/ProductReview" },
+      "description": "Public product and seller reviews written by authenticated customers."
+    },
+    "/tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/SupportTicket" },
+      "description": "Customer support inquiries and complaints isolated to the submitter and platform admin."
+    }
+  }
+}

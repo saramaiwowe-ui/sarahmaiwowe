@@ -1,0 +1,361 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Platform Admin verification
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.uid == 't4KRW1Yip1PRxx1AOK7VHmafaoY2' ||
+        (request.auth.token.email != null && (
+          request.auth.token.email == 'saramaiwowe@gmail.com' ||
+          request.auth.token.email.matches('.*admin.*')
+        )) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // 3. Entity Validation Blueprints (Anti-Update-Gap)
+    function isValidUserAccount(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'role', 'sellerStatus', 'accountStatus',
+          'hasShop', 'shopName', 'shopCity', 'shopWhatsapp',
+          'phone', 'defaultAddress', 'defaultCity', 'favoriteProductIds',
+          'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && (data.uid == request.auth.uid || isAdmin())
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.role is string && data.role in ['customer', 'shop_owner', 'admin']
+        && (!('sellerStatus' in data) || (data.sellerStatus is string && data.sellerStatus in ['pending', 'approved', 'suspended', 'banned']))
+        && (!('accountStatus' in data) || (data.accountStatus is string && data.accountStatus in ['pending', 'approved', 'suspended', 'banned']))
+        && (!('hasShop' in data) || data.hasShop is bool)
+        && (!('shopName' in data) || (data.shopName is string && data.shopName.size() <= 100))
+        && (!('shopCity' in data) || (data.shopCity is string && data.shopCity.size() <= 60))
+        && (!('shopWhatsapp' in data) || (data.shopWhatsapp is string && data.shopWhatsapp.size() <= 25))
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 25))
+        && (!('defaultAddress' in data) || (data.defaultAddress is string && data.defaultAddress.size() <= 300))
+        && (!('defaultCity' in data) || (data.defaultCity is string && data.defaultCity.size() <= 60))
+        && (!('favoriteProductIds' in data) || (
+          data.favoriteProductIds is list &&
+          data.favoriteProductIds.size() <= 50 &&
+          (data.favoriteProductIds.size() == 0 || (data.favoriteProductIds[0] is string && data.favoriteProductIds[0].size() <= 128))
+        ))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidShopProfile(data) {
+      return data.keys().hasAll(['ownerId', 'shopName', 'city', 'whatsappNumber', 'bio', 'isPublic', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'ownerId', 'shopName', 'city', 'whatsappNumber', 'bio',
+          'category', 'isVerified', 'status', 'subscriptionTier', 'subscriptionPriceXaf', 'subscriptionUpdatedAt',
+          'isPublic', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && (data.ownerId == request.auth.uid || isAdmin())
+        && data.shopName is string && data.shopName.size() >= 2 && data.shopName.size() <= 100
+        && data.city is string && data.city.size() >= 2 && data.city.size() <= 60
+        && data.whatsappNumber is string && data.whatsappNumber.size() >= 9 && data.whatsappNumber.size() <= 20 && data.whatsappNumber.matches('^\\+?[0-9]{9,15}$')
+        && data.bio is string && data.bio.size() <= 500
+        && (!('category' in data) || (data.category is string && data.category in ['fashion', 'gourmet', 'crafts', 'beauty', 'electronics', 'household']))
+        && (!('isVerified' in data) || data.isVerified is bool)
+        && (!('status' in data) || (data.status is string && data.status in ['pending', 'approved', 'suspended', 'banned']))
+        && (!('subscriptionTier' in data) || (data.subscriptionTier is string && data.subscriptionTier in ['free', 'basic', 'pro', 'vip']))
+        && (!('subscriptionPriceXaf' in data) || (data.subscriptionPriceXaf is int || data.subscriptionPriceXaf is float))
+        && (!('subscriptionUpdatedAt' in data) || (data.subscriptionUpdatedAt is string && data.subscriptionUpdatedAt.size() <= 50))
+        && data.isPublic is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+          'title', 'description', 'priceXaf', 'category', 'imageUrl',
+          'shopId', 'shopName', 'shopCity', 'whatsappNumber', 'ownerId',
+          'isPublic', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'title', 'description', 'priceXaf', 'originalPriceXaf', 'stock',
+          'isFeatured', 'isPromoted', 'promotionPackageId', 'promotionPackageName', 'promotionFeeXaf',
+          'promoBadge', 'category', 'imageUrl',
+          'shopId', 'shopName', 'shopCity', 'whatsappNumber', 'ownerId',
+          'isPublic', 'isApproved', 'approvalStatus', 'createdAt', 'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 120
+        && data.description is string && data.description.size() >= 5 && data.description.size() <= 1200
+        && (data.priceXaf is int || data.priceXaf is float) && data.priceXaf > 0 && data.priceXaf <= 100000000
+        && (!('originalPriceXaf' in data) || ((data.originalPriceXaf is int || data.originalPriceXaf is float) && data.originalPriceXaf >= 0 && data.originalPriceXaf <= 100000000))
+        && (!('stock' in data) || ((data.stock is int || data.stock is float) && data.stock >= 0 && data.stock <= 1000000))
+        && (!('isFeatured' in data) || data.isFeatured is bool)
+        && (!('isPromoted' in data) || data.isPromoted is bool)
+        && (!('isApproved' in data) || data.isApproved is bool)
+        && (!('approvalStatus' in data) || (data.approvalStatus is string && data.approvalStatus in ['pending', 'approved', 'rejected']))
+        && (!('promotionPackageId' in data) || (data.promotionPackageId is string && data.promotionPackageId.size() <= 40))
+        && (!('promotionPackageName' in data) || (data.promotionPackageName is string && data.promotionPackageName.size() <= 100))
+        && (!('promotionFeeXaf' in data) || (data.promotionFeeXaf is int || data.promotionFeeXaf is float))
+        && (!('promoBadge' in data) || (data.promoBadge is string && data.promoBadge.size() <= 40))
+        && data.category is string && data.category in ['fashion', 'gourmet', 'crafts', 'beauty', 'electronics', 'household']
+        && data.imageUrl is string && data.imageUrl.size() >= 5 && data.imageUrl.size() <= 700000
+        && data.shopId is string && data.shopId.size() >= 1 && data.shopId.size() <= 128 && data.shopId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.shopName is string && data.shopName.size() >= 2 && data.shopName.size() <= 100
+        && data.shopCity is string && data.shopCity.size() >= 2 && data.shopCity.size() <= 60
+        && data.whatsappNumber is string && data.whatsappNumber.size() >= 9 && data.whatsappNumber.size() <= 20 && data.whatsappNumber.matches('^\\+?[0-9]{9,15}$')
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && (data.ownerId == request.auth.uid || isAdmin())
+        && data.isPublic is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+          'orderNumber', 'customerId', 'customerName', 'customerPhone',
+          'deliveryCity', 'deliveryAddress', 'deliveryMethod', 'paymentMethod',
+          'paymentStatus', 'orderStatus', 'shopId', 'shopName', 'itemsSummary',
+          'subtotalXaf', 'deliveryFeeXaf', 'totalXaf', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'orderNumber', 'customerId', 'customerName', 'customerPhone',
+          'deliveryCity', 'deliveryAddress', 'deliveryMethod', 'paymentMethod',
+          'paymentStatus', 'orderStatus', 'shopId', 'shopName', 'itemsSummary',
+          'subtotalXaf', 'deliveryFeeXaf', 'totalXaf', 'createdAt', 'updatedAt'
+        ])
+        && data.orderNumber is string && data.orderNumber.size() >= 4 && data.orderNumber.size() <= 40
+        && data.customerId is string && data.customerId.size() >= 1 && data.customerId.size() <= 128 && data.customerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100
+        && data.customerPhone is string && data.customerPhone.size() >= 8 && data.customerPhone.size() <= 25
+        && data.deliveryCity is string && data.deliveryCity.size() >= 2 && data.deliveryCity.size() <= 60
+        && data.deliveryAddress is string && data.deliveryAddress.size() >= 3 && data.deliveryAddress.size() <= 300
+        && data.deliveryMethod is string && data.deliveryMethod in ['local_express', 'intercity_bus', 'shop_pickup']
+        && data.paymentMethod is string && data.paymentMethod in ['mtn_momo', 'orange_money', 'bank_card', 'cash_on_delivery']
+        && data.paymentStatus is string && data.paymentStatus in ['pending', 'paid', 'cod_pending', 'refunded']
+        && data.orderStatus is string && data.orderStatus in ['placed', 'confirmed', 'in_transit', 'delivered', 'cancelled']
+        && data.shopId is string && data.shopId.size() >= 1 && data.shopId.size() <= 128 && data.shopId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.shopName is string && data.shopName.size() >= 2 && data.shopName.size() <= 100
+        && data.itemsSummary is string && data.itemsSummary.size() >= 2 && data.itemsSummary.size() <= 1500
+        && (data.subtotalXaf is int || data.subtotalXaf is float) && data.subtotalXaf >= 0 && data.subtotalXaf <= 100000000
+        && (data.deliveryFeeXaf is int || data.deliveryFeeXaf is float) && data.deliveryFeeXaf >= 0 && data.deliveryFeeXaf <= 1000000
+        && (data.totalXaf is int || data.totalXaf is float) && data.totalXaf >= 0 && data.totalXaf <= 101000000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidReview(data) {
+      return data.keys().hasAll([
+          'productId', 'shopId', 'authorId', 'authorName',
+          'rating', 'comment', 'isPublic', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'productId', 'shopId', 'authorId', 'authorName',
+          'rating', 'comment', 'isPublic', 'createdAt'
+        ])
+        && data.productId is string && data.productId.size() >= 1 && data.productId.size() <= 128 && data.productId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.shopId is string && data.shopId.size() >= 1 && data.shopId.size() <= 128 && data.shopId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 128 && data.authorId.matches('^[a-zA-Z0-9_\\-]+$')
+        && (data.authorId == request.auth.uid || isAdmin())
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && (data.rating is int || data.rating is float) && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() >= 3 && data.comment.size() <= 800
+        && data.isPublic is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTicket(data) {
+      return data.keys().hasAll([
+          'userId', 'userName', 'userEmail', 'subject',
+          'message', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'userName', 'userEmail', 'subject',
+          'message', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$')
+        && (data.userId == request.auth.uid || isAdmin())
+        && data.userName is string && data.userName.size() >= 2 && data.userName.size() <= 100
+        && data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 200
+        && data.subject is string && data.subject.size() >= 3 && data.subject.size() <= 140
+        && data.message is string && data.message.size() >= 5 && data.message.size() <= 1500
+        && data.status is string && data.status in ['open', 'resolved']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // 4. Collection Rules: Users (Strict PII Isolation, Admin Read/Manage)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && (isOwner(userId) || isAdmin())
+        && isValidUserAccount(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && (isOwner(userId) || isAdmin())
+        && isValidUserAccount(incoming())
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isSignedIn() && (
+            isAdmin() ||
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'role', 'sellerStatus', 'accountStatus', 'hasShop', 'shopName', 'shopCity', 'shopWhatsapp', 'phone', 'defaultAddress', 'defaultCity', 'favoriteProductIds', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(userId) && isSignedIn();
+    }
+
+    // 5. Collection Rules: Shops (Public Storefront Profiles, Admin Verification)
+    match /shops/{shopId} {
+      allow get: if isValidId(shopId);
+      allow list: if true;
+      allow create: if isValidId(shopId)
+        && isSignedIn()
+        && isValidShopProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(shopId)
+        && isSignedIn()
+        && isValidShopProfile(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'shopName', 'city', 'whatsappNumber', 'bio', 'category', 'isVerified', 'status', 'subscriptionTier', 'subscriptionPriceXaf', 'subscriptionUpdatedAt', 'isPublic', 'updatedAt'
+          ])
+        );
+      allow delete: if isValidId(shopId) && isSignedIn();
+    }
+
+    // 6. Collection Rules: Products (Marketplace Catalog, Stock & Promo Management)
+    match /products/{productId} {
+      allow get: if isValidId(productId) && (existing().isPublic == true || (isSignedIn() && existing().ownerId == request.auth.uid) || isAdmin());
+      allow list: if existing().isPublic == true || (isSignedIn() && existing().ownerId == request.auth.uid) || isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(productId)
+        && isValidProduct(incoming())
+        && (existing().ownerId == request.auth.uid || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().shopId == existing().shopId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'description', 'priceXaf', 'originalPriceXaf', 'stock',
+            'isFeatured', 'isPromoted', 'promotionPackageId', 'promotionPackageName', 'promotionFeeXaf',
+            'promoBadge', 'category', 'imageUrl',
+            'shopName', 'shopCity', 'whatsappNumber', 'isPublic', 'isApproved', 'approvalStatus', 'updatedAt'
+          ])
+        );
+      allow delete: if isSignedIn()
+        && isValidId(productId)
+        && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 7. Collection Rules: Orders (Isolated to Customer, Shop Owner & Admin)
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && isValidId(orderId) && (
+        existing().customerId == request.auth.uid ||
+        existing().shopId == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        existing().customerId == request.auth.uid ||
+        existing().shopId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn()
+        && isValidId(orderId)
+        && isValidOrder(incoming())
+        && (incoming().customerId == request.auth.uid || isAdmin())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().customerId == existing().customerId
+        && incoming().shopId == existing().shopId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            (existing().shopId == request.auth.uid || existing().customerId == request.auth.uid) &&
+            !(existing().orderStatus in ['delivered', 'cancelled']) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['orderStatus', 'paymentStatus', 'updatedAt'])
+          )
+        );
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    // 8. Collection Rules: Reviews (Public Read, Authenticated Customer Write)
+    match /reviews/{reviewId} {
+      allow get: if isValidId(reviewId) && (existing().isPublic == true || isAdmin());
+      allow list: if existing().isPublic == true || isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(reviewId)
+        && isValidReview(incoming())
+        && incoming().createdAt == request.time;
+      allow delete: if isSignedIn()
+        && isValidId(reviewId)
+        && (existing().authorId == request.auth.uid || isAdmin());
+    }
+
+    // 9. Collection Rules: Support Tickets & Complaints
+    match /tickets/{ticketId} {
+      allow get: if isSignedIn() && isValidId(ticketId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && isValidId(ticketId)
+        && isValidTicket(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(ticketId)
+        && isValidTicket(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow delete: if isValidId(ticketId) && isAdmin();
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "KmerMarket — Cameroonian Multi-Vendor Marketplace",
+  "description": "A bilingual (English/French) multi-vendor e-commerce marketplace connecting Cameroonian retail boutiques, artisans, and food producers directly with customers via WhatsApp and XAF/FCFA pricing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
